@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
+import NavigationProgress from "@/components/site/NavigationProgress";
 import { getSettings } from "@/lib/db";
 import "./globals.css";
 
@@ -25,7 +27,12 @@ export const viewport = {
 export default async function RootLayout({ children }) {
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <body className="min-h-dvh flex flex-col">{children}</body>
+      <body className="min-h-dvh flex flex-col">
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
+        {children}
+      </body>
     </html>
   );
 }

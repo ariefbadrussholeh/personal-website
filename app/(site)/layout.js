@@ -1,9 +1,7 @@
-import { Suspense } from "react";
 import Nav from "@/components/site/Nav";
 import Footer from "@/components/site/Footer";
 import PointerEffects from "@/components/site/PointerEffects";
 import Tracker from "@/components/site/Tracker";
-import NavigationProgress from "@/components/site/NavigationProgress";
 import { getLikeState, getSettings } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
 import { readVisitor } from "@/lib/visitor";
@@ -14,9 +12,6 @@ export default async function SiteLayout({ children }) {
   const siteLike = await getLikeState("site", await readVisitor());
   return (
     <>
-      <Suspense fallback={null}>
-        <NavigationProgress />
-      </Suspense>
       <PointerEffects />
       <Tracker />
       <a
