@@ -66,6 +66,66 @@ create table if not exists public.settings (
   value         text not null
 );
 
+create table if not exists public.experiences (
+  id            bigint generated always as identity primary key,
+  company       text not null default '',
+  role          text not null default '',
+  location      text not null default '',
+  url           text not null default '',
+  start_date    text not null default '',   -- format YYYY-MM
+  end_date      text not null default '',   -- kosong = belum selesai
+  is_current    boolean not null default false,
+  highlights    text[] not null default '{}',
+  tech          text[] not null default '{}',
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+create table if not exists public.messages (
+  id            bigint generated always as identity primary key,
+  name          text not null,
+  email         text not null,
+  subject       text not null default '',
+  message       text not null,
+  read          boolean not null default false,
+  created_at    timestamptz not null default now()
+);
+create index if not exists messages_created_idx on public.messages (created_at desc);
+
+create table if not exists public.comments (
+  id            bigint generated always as identity primary key,
+  post_id       bigint not null references public.posts(id) on delete cascade,
+  name          text not null,
+  body          text not null,
+  approved      boolean not null default true,
+  visitor       text not null default '',
+  created_at    timestamptz not null default now()
+);
+create index if not exists comments_post_idx on public.comments (post_id, created_at);
+
+-- target: 'site' atau 'post:<id>'. Satu pengunjung hanya bisa like satu kali per target.
+create table if not exists public.likes (
+  id            bigint generated always as identity primary key,
+  target        text not null,
+  visitor       text not null,
+  created_at    timestamptz not null default now(),
+  unique (target, visitor)
+);
+create index if not exists likes_target_idx on public.likes (target);
+
+-- Analitik tanpa cookie pelacak: pengunjung = hash harian dari IP + browser.
+create table if not exists public.page_views (
+  id            bigint generated always as identity primary key,
+  path          text not null,
+  referrer      text not null default '',
+  device        text not null default '',
+  browser       text not null default '',
+  country       text not null default '',
+  visitor       text not null default '',
+  created_at    timestamptz not null default now()
+);
+create index if not exists page_views_created_idx on public.page_views (created_at desc);
+
 create index if not exists posts_published_idx    on public.posts    (published, published_at desc);
 create index if not exists projects_published_idx on public.projects (published, published_at desc);
 create index if not exists albums_published_idx   on public.albums   (published, published_at desc);
@@ -78,6 +138,11 @@ alter table public.projects enable row level security;
 alter table public.albums   enable row level security;
 alter table public.photos   enable row level security;
 alter table public.settings enable row level security;
+alter table public.experiences enable row level security;
+alter table public.messages enable row level security;
+alter table public.comments enable row level security;
+alter table public.likes enable row level security;
+alter table public.page_views enable row level security;
 
 -- Bucket penyimpanan gambar. Publik untuk dibaca (supaya <img> bisa menampilkan),
 -- tetapi hanya server yang bisa mengunggah dan menghapus.

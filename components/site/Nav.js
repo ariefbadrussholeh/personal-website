@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { GithubLogo, List, X, GearSix } from "@phosphor-icons/react";
+import { motion } from "motion/react";
 
 const LINKS = [
   { href: "/", label: "Home" },
@@ -11,6 +12,7 @@ const LINKS = [
   { href: "/projects", label: "Projects" },
   { href: "/album", label: "Album" },
   { href: "/about", label: "About" },
+  { href: "/contact", label: "Contact" },
 ];
 
 function isActive(pathname, href) {
@@ -44,7 +46,12 @@ export default function Nav({ name, github, admin }) {
               >
                 {l.label}
                 {active && (
-                  <span className="absolute inset-x-3 -bottom-[17px] h-px bg-accent" aria-hidden />
+                  <motion.span
+                    layoutId="nav-underline"
+                    transition={{ type: "spring", stiffness: 400, damping: 34 }}
+                    className="absolute inset-x-3 -bottom-[17px] h-px bg-accent"
+                    aria-hidden
+                  />
                 )}
               </Link>
             );

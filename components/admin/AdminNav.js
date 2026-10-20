@@ -3,19 +3,23 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  ArrowUpRight, Article, Briefcase, GearSix, House, Images, SignOut,
+  ArrowUpRight, Article, Briefcase, ChartBar, ChatCircle, EnvelopeSimple, GearSix, House, Images, SignOut, Suitcase,
 } from "@phosphor-icons/react";
 import { api } from "@/lib/client";
 
 const ITEMS = [
   { href: "/admin", label: "Ringkasan", Icon: House, exact: true },
+  { href: "/admin/analytics", label: "Analitik", Icon: ChartBar },
   { href: "/admin/blog", label: "Blog", Icon: Article },
   { href: "/admin/projects", label: "Project", Icon: Briefcase },
   { href: "/admin/album", label: "Album", Icon: Images },
+  { href: "/admin/experience", label: "Pengalaman", Icon: Suitcase },
+  { href: "/admin/messages", label: "Pesan", Icon: EnvelopeSimple, badge: true },
+  { href: "/admin/comments", label: "Komentar", Icon: ChatCircle },
   { href: "/admin/settings", label: "Pengaturan", Icon: GearSix },
 ];
 
-export default function AdminNav() {
+export default function AdminNav({ unread = 0 }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -27,7 +31,7 @@ export default function AdminNav() {
 
   return (
     <nav aria-label="Admin" className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
-      {ITEMS.map(({ href, label, Icon, exact }) => {
+      {ITEMS.map(({ href, label, Icon, exact, badge }) => {
         const active = exact ? pathname === href : pathname.startsWith(href);
         return (
           <Link
@@ -40,6 +44,11 @@ export default function AdminNav() {
           >
             <Icon size={18} className={active ? "text-accent" : ""} />
             {label}
+            {badge && unread > 0 && (
+              <span className="ml-auto rounded-[6px] bg-accent px-1.5 text-xs font-medium tabular-nums text-black" aria-label={`${unread} belum dibaca`}>
+                {unread}
+              </span>
+            )}
           </Link>
         );
       })}

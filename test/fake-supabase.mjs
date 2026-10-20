@@ -42,6 +42,35 @@ const SCHEMA = {
     fk: { album_id: "albums" },
   },
   settings: { pk: "key", defaults: () => ({}), required: ["value"] },
+  experiences: {
+    pk: "id",
+    defaults: () => ({
+      company: "", role: "", location: "", url: "", start_date: "", end_date: "",
+      is_current: false, highlights: [], tech: [], created_at: now(), updated_at: now(),
+    }),
+  },
+  messages: {
+    pk: "id",
+    required: ["name", "email", "message"],
+    defaults: () => ({ subject: "", read: false, created_at: now() }),
+  },
+  comments: {
+    pk: "id",
+    required: ["post_id", "name", "body"],
+    defaults: () => ({ approved: true, visitor: "", created_at: now() }),
+    fk: { post_id: "posts" },
+  },
+  likes: {
+    pk: "id",
+    required: ["target", "visitor"],
+    uniqueSets: [["target", "visitor"]],
+    defaults: () => ({ created_at: now() }),
+  },
+  page_views: {
+    pk: "id",
+    required: ["path"],
+    defaults: () => ({ referrer: "", device: "", browser: "", country: "", visitor: "", created_at: now() }),
+  },
 };
 
 const db = Object.fromEntries(Object.keys(SCHEMA).map((t) => [t, []]));
@@ -77,6 +106,10 @@ function matcher(col, expr) {
       return (r) => re.test(str(r[col]) ?? "");
     }
     case "is": return (r) => (val === "null" ? r[col] === null : String(r[col]) === val);
+    case "gte": return (r) => str(r[col]) !== null && str(r[col]) >= val;
+    case "gt": return (r) => str(r[col]) !== null && str(r[col]) > val;
+    case "lte": return (r) => str(r[col]) !== null && str(r[col]) <= val;
+    case "lt": return (r) => str(r[col]) !== null && str(r[col]) < val;
     default: throw new PgError(400, "PGRST100", `unsupported operator ${op}`);
   }
 }
@@ -109,6 +142,8 @@ function select(table, params) {
   }
   const offset = Number(params.get("offset") || 0);
   const limit = params.get("limit") ? Number(params.get("limit")) : undefined;
+  select.lastTotal = rows.length;
+  select.lastOffset = offset;
   return rows.slice(offset, limit === undefined ? undefined : offset + limit);
 }
 
@@ -126,6 +161,11 @@ function checkRow(table, row, ignore) {
   for (const col of cfg.required || []) {
     if (row[col] === undefined || row[col] === null) {
       throw new PgError(400, "23502", `null value in column "${col}" violates not-null constraint`);
+    }
+  }
+  for (const set of cfg.uniqueSets || []) {
+    if (db[table].some((r) => r !== ignore && set.every((c) => r[c] === row[c]))) {
+      throw new PgError(409, "23505", `duplicate key value violates unique constraint "${table}_${set.join("_")}_key"`);
     }
   }
   for (const col of cfg.unique || []) {
@@ -188,6 +228,10 @@ function remove(table, params) {
   if (table === "albums") {
     const gone = new Set(targets.map((a) => a.id));
     db.photos = db.photos.filter((p) => !gone.has(p.album_id));
+  }
+  if (table === "posts") {
+    const gone = new Set(targets.map((a) => a.id));
+    db.comments = db.comments.filter((c) => !gone.has(c.post_id));
   }
   return targets;
 }
@@ -260,8 +304,23 @@ const server = http.createServer(async (req, res) => {
       const wantsRows = /return=representation/.test(prefer);
       let rows;
 
-      if (req.method === "GET") rows = project(select(table, params), params);
-      else {
+      if (req.method === "GET" || req.method === "HEAD") {
+        rows = project(select(table, params), params);
+        const total = select.lastTotal;
+        const countHeader = /count=exact/.test(prefer)
+          ? { "Content-Range": rows.length ? `${select.lastOffset}-${select.lastOffset + rows.length - 1}/${total}` : `*/${total}` }
+          : {};
+        if (req.method === "HEAD") {
+          res.writeHead(200, { "Content-Type": "application/json", ...countHeader });
+          return res.end();
+        }
+        if (wantsObject) {
+          if (rows.length !== 1) throw new PgError(406, "PGRST116", "JSON object requested, multiple (or no) rows returned");
+          return send(res, 200, rows[0], countHeader);
+        }
+        return send(res, 200, rows, countHeader);
+      }
+      {
         const raw = (await readBody(req)).toString();
         const body = raw ? JSON.parse(raw) : undefined;
         if (req.method === "POST") rows = insert(table, body, params, prefer);

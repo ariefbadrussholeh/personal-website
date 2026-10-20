@@ -22,8 +22,12 @@ async function check(label, q) {
   return data;
 }
 
-const existing = await check("cek data", sb.from("posts").select("id").limit(1));
-if (existing.length && !process.argv.includes("--force")) {
+const force = process.argv.includes("--force");
+const hasContent = (await check("cek data", sb.from("posts").select("id").limit(1))).length > 0;
+const hasExperience = (await check("cek pengalaman", sb.from("experiences").select("id").limit(1))).length > 0;
+const skipContent = hasContent && !force;
+const skipExperience = hasExperience && !force;
+if (skipContent && skipExperience) {
   console.log("Database sudah berisi data, seed dilewati. Pakai --force untuk menambah contoh lagi.");
   process.exit(0);
 }
@@ -173,31 +177,83 @@ const photos = [
   ["/samples/photo-6.jpg", 1200, 1500, "Quiet street"],
 ];
 
-for (const p of posts) {
-  await check(`post ${p.slug}`, sb.from("posts").insert({ published: true, slug_auto: false, ...p }));
+if (!skipContent) {
+  for (const p of posts) {
+    await check(`post ${p.slug}`, sb.from("posts").insert({ published: true, slug_auto: false, ...p }));
+  }
+  for (const p of projects) {
+    await check(`project ${p.slug}`, sb.from("projects").insert({ published: true, slug_auto: false, ...p }));
+  }
+  const [album] = await check(
+    "album",
+    sb
+      .from("albums")
+      .insert({
+        slug: "weekend-walks",
+        slug_auto: false,
+        title: "Weekend walks",
+        description: "Photos from walks outside the city, taken on whatever camera I had with me.",
+        published: true,
+        published_at: day(15),
+      })
+      .select("id")
+  );
+  await check(
+    "photos",
+    sb.from("photos").insert(
+      photos.map(([u, width, height, caption], i) => ({ album_id: album.id, url: u, width, height, caption, position: i }))
+    )
+  );
 }
-for (const p of projects) {
-  await check(`project ${p.slug}`, sb.from("projects").insert({ published: true, slug_auto: false, ...p }));
-}
-const [album] = await check(
-  "album",
-  sb
-    .from("albums")
-    .insert({
-      slug: "weekend-walks",
-      slug_auto: false,
-      title: "Weekend walks",
-      description: "Photos from walks outside the city, taken on whatever camera I had with me.",
-      published: true,
-      published_at: day(15),
-    })
-    .select("id")
-);
-await check(
-  "photos",
-  sb.from("photos").insert(
-    photos.map(([u, width, height, caption], i) => ({ album_id: album.id, url: u, width, height, caption, position: i }))
-  )
-);
 
-console.log("Selesai: 3 tulisan, 4 project, 1 album contoh ditambahkan.");
+const experiences = [
+  {
+    company: "Lintasdata",
+    role: "Senior Software Engineer",
+    location: "Jakarta, hybrid",
+    url: "https://example.com",
+    start_date: "2024-02",
+    end_date: "",
+    is_current: true,
+    highlights: [
+      "Memimpin migrasi dashboard analitik dari server-rendered ke Next.js, waktu muat halaman utama turun dari 4 detik ke 1,3 detik.",
+      "Merancang pipeline impor data CSV berukuran besar dengan antrean dan retry, sehingga tim operasional tidak lagi mengunggah ulang secara manual.",
+      "Mentoring tiga engineer junior lewat code review dan sesi pairing mingguan.",
+    ],
+    tech: ["Next.js", "PostgreSQL", "TypeScript", "Docker"],
+  },
+  {
+    company: "Kopikode Studio",
+    role: "Full-stack Developer",
+    location: "Bandung",
+    url: "",
+    start_date: "2021-06",
+    end_date: "2024-01",
+    is_current: false,
+    highlights: [
+      "Membangun sistem pemesanan untuk jaringan kafe dengan 14 outlet, dari aplikasi kasir sampai laporan harian.",
+      "Mengurangi biaya infrastruktur sekitar sepertiga dengan memindahkan layanan lama ke satu kluster terkelola.",
+    ],
+    tech: ["React", "Node.js", "MySQL"],
+  },
+  {
+    company: "Rawa Digital",
+    role: "Junior Web Developer",
+    location: "Yogyakarta",
+    url: "",
+    start_date: "2019-08",
+    end_date: "2021-05",
+    is_current: false,
+    highlights: [
+      "Mengerjakan situs company profile dan toko online untuk klien UMKM, dari desain sampai deploy.",
+      "Menulis komponen UI yang dipakai ulang di lebih dari sepuluh proyek.",
+    ],
+    tech: ["JavaScript", "Laravel", "Tailwind"],
+  },
+];
+
+if (!skipExperience) {
+  for (const e of experiences) await check(`pengalaman ${e.company}`, sb.from("experiences").insert(e));
+}
+
+console.log("Selesai: data contoh ditambahkan" + (skipContent ? "" : " (3 tulisan, 4 project, 1 album)") + (skipExperience ? "" : ", 3 pengalaman kerja") + ".");

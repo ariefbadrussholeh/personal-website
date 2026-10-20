@@ -383,3 +383,82 @@ body {
 }
 .fade-in { animation: fade-in 0.25s var(--ease-out-expo) both; }
 .rise-in { animation: rise-in 0.35s var(--ease-out-expo) both; }
+
+/* ------------------------------------------------------------------ */
+/* Pointer effects (hover devices only, see PointerEffects.js)         */
+/* ------------------------------------------------------------------ */
+
+/* Spotlight: a soft blue glow and a lit border that follow the cursor. */
+.spot {
+  position: relative;
+  isolation: isolate;
+}
+.spot::before,
+.spot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s var(--ease-out-expo);
+}
+.spot::before {
+  padding: 1px;
+  background: radial-gradient(
+    260px circle at var(--mx, 50%) var(--my, 50%),
+    rgb(74 130 255 / 0.9),
+    transparent 65%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.spot::after {
+  background: radial-gradient(
+    340px circle at var(--mx, 50%) var(--my, 50%),
+    rgb(74 130 255 / 0.07),
+    transparent 70%
+  );
+}
+@media (hover: hover) and (pointer: fine) {
+  .spot:hover::before,
+  .spot:hover::after {
+    opacity: 1;
+  }
+}
+
+/* Hero: a dot grid that only shows near the cursor. */
+.hero-grid {
+  position: relative;
+  isolation: isolate;
+}
+.hero-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(rgb(255 255 255 / 0.28) 1px, transparent 1.3px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(420px circle at var(--mx, 72%) var(--my, 28%), #000, transparent 70%);
+  mask-image: radial-gradient(420px circle at var(--mx, 72%) var(--my, 28%), #000, transparent 70%);
+}
+.hero-grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(520px circle at var(--mx, 72%) var(--my, 28%), rgb(74 130 255 / 0.1), transparent 70%);
+}
+
+/* Experience: the rows you are not pointing at step back. */
+@media (hover: hover) and (pointer: fine) {
+  .t-item {
+    transition: opacity 0.3s var(--ease-out-expo);
+  }
+  .timeline:hover .t-item:not(:hover) {
+    opacity: 0.5;
+  }
+}

@@ -16,6 +16,7 @@ async function handlePOST(_req, { params }) {
   if (blocked) return blocked;
   const { kind } = await params;
   if (!KINDS[kind]) return Response.json({ error: "Tidak ditemukan" }, { status: 404 });
+  if (KINDS[kind].creatable === false) return Response.json({ error: "Tidak bisa dibuat dari admin" }, { status: 405 });
   return Response.json(await createEntry(kind), { status: 201 });
 }
 

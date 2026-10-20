@@ -1,10 +1,11 @@
-import { getSettings } from "@/lib/db";
+import { getSettings, listPublicExperiences } from "@/lib/db";
 import { parseStack } from "@/lib/icons";
 import { GithubLogo, LinkedinLogo, XLogo, EnvelopeSimple } from "@phosphor-icons/react/dist/ssr";
 import PageHeader from "@/components/site/PageHeader";
 import Markdown from "@/components/site/Markdown";
 import Cover from "@/components/site/Cover";
 import TechIcon from "@/components/site/TechIcon";
+import ExperienceTimeline from "@/components/site/ExperienceTimeline";
 
 export const metadata = { title: "About" };
 
@@ -12,6 +13,7 @@ const PORTRAIT_FALLBACK = "/samples/portrait.jpg";
 
 export default async function AboutPage() {
   const s = await getSettings();
+  const experiences = await listPublicExperiences();
   const stack = parseStack(s.stack);
   const links = [
     { href: s.github, label: "GitHub", Icon: GithubLogo },
@@ -49,6 +51,14 @@ export default async function AboutPage() {
 
         <div>
           <Markdown>{s.about}</Markdown>
+          {experiences.length > 0 && (
+            <section id="experience" className="mt-16 scroll-mt-24">
+              <h2 className="text-2xl font-semibold tracking-tight">Experience</h2>
+              <div className="mt-8">
+                <ExperienceTimeline items={experiences} />
+              </div>
+            </section>
+          )}
           {stack.length > 0 && (
             <div className="mt-14">
               <h2 className="text-2xl font-semibold tracking-tight">Tools I use</h2>

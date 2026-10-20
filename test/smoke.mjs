@@ -11,15 +11,15 @@ const ok = (cond, label, extra = "") => {
   console.log(`${cond ? "PASS" : "FAIL"}  ${label}${!cond && extra ? "  -> " + extra : ""}`);
   if (!cond) failed++;
 };
-async function call(method, path, body, { form, raw } = {}) {
+async function call(method, path, body, { form, raw, headers = {}, nocookie } = {}) {
   const res = await fetch(BASE + path, {
     method,
-    headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...(cookie ? { cookie } : {}) },
+    headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...(cookie && !nocookie ? { cookie } : {}), ...headers },
     body: form || (body ? JSON.stringify(body) : undefined),
     redirect: "manual",
   });
   const set = res.headers.get("set-cookie");
-  if (set) cookie = set.split(";")[0];
+  if (set && !nocookie && set.includes("portfolio_admin")) cookie = set.split(";")[0];
   const text = await res.text();
   let json; try { json = JSON.parse(text); } catch {}
   return { status: res.status, json, text };
@@ -157,6 +157,122 @@ if (FAKE) {
   const st = await fetch(FAKE + "/__state").then((x) => x.json());
   ok(!st.files.includes(up.url.split("/").pop()), "last reference gone -> file removed from Storage");
 }
+
+// --- experience
+const ip = () => ({ "x-forwarded-for": `10.${Math.floor(Math.random()*250)}.${Math.floor(Math.random()*250)}.${Math.floor(Math.random()*250)}` });
+r = await call("POST", "/api/experiences");
+const exp = r.json;
+ok(r.status === 201 && exp?.id, "create experience", r.text);
+r = await call("GET", "/about");
+ok(!r.text.includes("Acme Test Co"), "blank experience row hidden on public site");
+r = await call("PATCH", `/api/experiences/${exp.id}`, { company: "Acme Test Co", role: "Staff Engineer", start_date: "2022-03", is_current: true, highlights: ["Shipped a thing", " ", "Fixed another"], tech: ["Go", "go", "Rust"] });
+ok(r.status === 200 && r.json.highlights.length === 2 && r.json.is_current === true, "update experience", r.text);
+r = await fetch(BASE + "/about");
+ok((await r.text()).includes("Acme Test Co"), "experience shown on public about page");
+r = await call("GET", "/admin/experience");
+ok(r.status === 200 && r.text.includes("Staff Engineer"), "admin experience list");
+r = await call("GET", `/admin/experience/${exp.id}`);
+ok(r.status === 200, "admin experience editor renders");
+
+// --- contact
+const good = { name: "Tester", email: "t@example.com", subject: "Hi", message: "Hello there, this is a test." };
+r = await call("POST", "/api/public/contact", { ...good }, { headers: ip(), nocookie: true });
+ok(r.status === 201, "contact valid", r.text);
+r = await call("POST", "/api/public/contact", { ...good, email: "nope" }, { headers: ip(), nocookie: true });
+ok(r.status === 422 && r.json?.fields?.email, "contact invalid email -> 422", r.text);
+r = await call("POST", "/api/public/contact", { ...good, message: "short" }, { headers: ip(), nocookie: true });
+ok(r.status === 422 && r.json?.fields?.message, "contact short message -> 422");
+r = await call("POST", "/api/public/contact", { ...good, website: "spam.com", email: "bot@example.com" }, { headers: ip(), nocookie: true });
+ok(r.status === 200, "honeypot pretends success");
+r = await call("GET", "/api/messages");
+ok(r.json?.length >= 1 && !r.json.some((m) => m.email === "bot@example.com"), "honeypot message not stored");
+const msg = r.json.find((m) => m.email === "t@example.com");
+ok(msg && msg.read === false, "message stored unread");
+r = await call("PATCH", `/api/messages/${msg.id}`, { read: true });
+ok(r.json?.read === true, "mark message read");
+r = await call("POST", "/api/messages", {});
+ok(r.status === 405, "admin cannot create messages via API", r.status);
+const fixedIp = ip();
+let last;
+for (let i = 0; i < 7; i++) last = await call("POST", "/api/public/contact", { ...good, email: `u${i}@example.com` }, { headers: fixedIp, nocookie: true });
+ok(last.status === 429, "contact rate limit per IP", last.status);
+r = await call("GET", "/admin/messages");
+ok(r.status === 200 && r.text.includes("Tester"), "admin messages page");
+r = await call("DELETE", `/api/messages/${msg.id}`);
+ok(r.status === 200, "delete message");
+
+// --- comments
+r = await call("POST", "/api/posts", {});
+const cp = r.json;
+await call("PATCH", `/api/posts/${cp.id}`, { title: "Comment target", content: "body", published: true });
+const cmt = (b, h = ip()) => call("POST", "/api/public/comment", b, { headers: h, nocookie: true });
+r = await cmt({ postId: cp.id, name: "Ann", body: "Nice post!" });
+ok(r.status === 201 && r.json?.comment?.id, "comment created", r.text);
+const cid = r.json.comment.id;
+r = await cmt({ postId: cp.id, name: "", body: "x" });
+ok(r.status === 422, "comment validation");
+r = await cmt({ postId: cp.id, name: "Ann", body: "http://a.com http://b.com http://c.com" });
+ok(r.status === 422, "comment link limit");
+r = await cmt({ postId: 999999, name: "Ann", body: "hello there" });
+ok(r.status === 404, "comment on unknown post -> 404");
+r = await fetch(BASE + "/blog/comment-target");
+let html = await r.text();
+ok(html.includes("Nice post!"), "comment visible on post");
+r = await call("PATCH", `/api/comments/${cid}`, { approved: false });
+ok(r.json?.approved === false, "hide comment");
+r = await fetch(BASE + "/blog/comment-target");
+ok(!(await r.text()).includes("Nice post!"), "hidden comment not public");
+r = await call("GET", "/admin/comments");
+ok(r.status === 200 && r.text.includes("Nice post!") && r.text.includes("Comment target"), "admin comments list shows hidden one with post title");
+r = await call("DELETE", `/api/comments/${cid}`);
+ok(r.status === 200, "delete comment");
+
+// --- likes
+async function likeCall(method, path, body, jar) {
+  const res = await fetch(BASE + path, { method, headers: { "Content-Type": "application/json", ...(jar.c ? { cookie: jar.c } : {}), ...ip() }, body: body ? JSON.stringify(body) : undefined });
+  const set = res.headers.get("set-cookie"); if (set) jar.c = set.split(";")[0];
+  return { status: res.status, json: await res.json().catch(() => null) };
+}
+const A = {}, B = {};
+r = await likeCall("POST", "/api/public/like", { target: "site" }, A);
+ok(r.json?.liked === true && r.json.count === 1 + (r.json.count - 1), "like site", JSON.stringify(r.json));
+const base = r.json.count;
+r = await likeCall("POST", "/api/public/like", { target: "site" }, A);
+ok(r.json?.liked === false && r.json.count === base - 1, "second click unlikes");
+await likeCall("POST", "/api/public/like", { target: "site" }, A);
+r = await likeCall("POST", "/api/public/like", { target: "site" }, B);
+ok(r.json?.count === base + 1, "different visitor counts separately", JSON.stringify(r.json));
+r = await likeCall("POST", "/api/public/like", { target: `post:${cp.id}` }, A);
+ok(r.json?.liked === true, "like post");
+r = await likeCall("GET", `/api/public/like?target=post:${cp.id}`, null, A);
+ok(r.json?.liked === true && r.json.count === 1, "like state read back");
+r = await likeCall("POST", "/api/public/like", { target: "post:999999" }, A);
+ok(r.status === 404, "like unknown post -> 404");
+r = await likeCall("POST", "/api/public/like", { target: "nonsense" }, A);
+ok(r.status === 404, "like invalid target -> 404");
+
+// --- analytics
+const track = (path, ua = "Mozilla/5.0 (Windows NT 10.0) Chrome/120 Safari/537", extra = {}, h = ip()) =>
+  call("POST", "/api/public/track", { path, referrer: "https://news.ycombinator.com/x", ...extra }, { headers: { "user-agent": ua, ...h }, nocookie: true });
+const before = await call("GET", "/admin/analytics");
+ok(before.status === 200, "analytics page renders (empty)");
+r = await track("/blog/comment-target");
+ok(r.status === 204, "track 204");
+await track("/blog/comment-target");
+await track("/", "Mozilla/5.0 (iPhone) Mobile Safari");
+await track("/wp-admin/x");              // junk path ignored
+await track("/", "Googlebot/2.1");        // bot ignored
+r = await call("POST", "/api/public/track", { path: "/about" }, { headers: { "user-agent": "Chrome", ...ip() } }); // admin cookie
+ok(r.status === 204, "admin visit ignored");
+r = await call("GET", "/admin/analytics?range=30");
+ok(r.status === 200 && r.text.includes("news.ycombinator.com") && r.text.includes("Mobile"), "analytics shows referrer and device");
+ok(r.text.includes("/blog/comment-target") && !r.text.includes("wp-admin") && !r.text.includes("Googlebot"), "junk, bots excluded");
+ok(!r.text.includes("/about</"), "admin view not counted");
+
+// cleanup
+await call("DELETE", `/api/experiences/${exp.id}`);
+await call("DELETE", `/api/posts/${cp.id}`);
+
 
 // --- logout
 r = await call("POST", "/api/auth/logout");

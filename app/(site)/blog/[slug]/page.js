@@ -1,13 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "@phosphor-icons/react/dist/ssr";
-import { getEntryBySlug, readingMinutes } from "@/lib/db";
+import { getEntryBySlug, getLikeState, listComments, readingMinutes } from "@/lib/db";
+import { readVisitor } from "@/lib/visitor";
 import { isAdmin } from "@/lib/auth";
 import { entryDate } from "@/lib/format";
 import { extractHeadings } from "@/lib/headings";
 import Markdown from "@/components/site/Markdown";
 import Toc from "@/components/site/Toc";
 import EditLink from "@/components/site/EditLink";
+import LikeButton from "@/components/site/LikeButton";
+import CommentSection from "@/components/site/CommentSection";
+import ReadingProgress from "@/components/site/ReadingProgress";
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
@@ -32,9 +36,14 @@ export default async function PostPage({ params }) {
   const post = await getEntryBySlug("posts", slug, { onlyPublished: !admin });
   if (!post) notFound();
   const headings = extractHeadings(post.content);
+  const [like, comments] = await Promise.all([
+    getLikeState(`post:${post.id}`, await readVisitor()),
+    listComments(post.id),
+  ]);
 
   return (
     <article className="mx-auto w-full max-w-6xl px-5 pb-24 pt-10 md:px-8 md:pt-14">
+      <ReadingProgress />
       {admin && <EditLink href={`/admin/blog/${post.id}`} draft={!post.published} />}
 
       <Link href="/blog" className="inline-flex items-center gap-2 text-sm text-muted transition-colors hover:text-ink">
@@ -71,6 +80,15 @@ export default async function PostPage({ params }) {
         <aside className="hidden lg:block">
           <Toc headings={headings} />
         </aside>
+      </div>
+
+      <div className="mt-16 max-w-3xl border-t border-line pt-10">
+        <p className="mb-4 text-muted">Found this useful? Let me know.</p>
+        <LikeButton target={`post:${post.id}`} initialCount={like.count} initialLiked={like.liked} subject="this post" />
+      </div>
+
+      <div className="mt-16">
+        <CommentSection postId={post.id} initialComments={comments} />
       </div>
     </article>
   );

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { GithubLogo, LinkedinLogo, XLogo, EnvelopeSimple } from "@phosphor-icons/react/dist/ssr";
 
-export default function Footer({ settings }) {
+import LikeButton from "./LikeButton";
+
+export default function Footer({ settings, siteLike }) {
   const socials = [
     { href: settings.github, label: "GitHub", Icon: GithubLogo },
     { href: settings.linkedin, label: "LinkedIn", Icon: LinkedinLogo },
@@ -15,6 +17,11 @@ export default function Footer({ settings }) {
         <div>
           <p className="text-base font-semibold tracking-tight">{settings.name}</p>
           <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted">{settings.tagline}</p>
+          {siteLike && (
+            <div className="mt-5">
+              <LikeButton target="site" initialCount={siteLike.count} initialLiked={siteLike.liked} subject="this site" />
+            </div>
+          )}
         </div>
 
         <nav aria-label="Footer" className="grid content-start gap-2 text-sm">
@@ -22,6 +29,7 @@ export default function Footer({ settings }) {
           <Link href="/projects" className="text-muted transition-colors hover:text-ink">Projects</Link>
           <Link href="/album" className="text-muted transition-colors hover:text-ink">Album</Link>
           <Link href="/about" className="text-muted transition-colors hover:text-ink">About</Link>
+          <Link href="/contact" className="text-muted transition-colors hover:text-ink">Contact</Link>
         </nav>
 
         <div className="flex content-start gap-2 md:justify-end">
