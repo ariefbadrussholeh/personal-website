@@ -47,7 +47,10 @@ export default function SettingsForm({ initial }) {
   return (
     <form onSubmit={save} className="space-y-10">
       <section className="grid gap-6 md:grid-cols-[14rem_1fr]">
-        <ImageField label="Foto profil" value={s.avatar} onChange={(url) => setS((v) => ({ ...v, avatar: url }))} aspect="4 / 5" compact />
+        <div className="space-y-4">
+          <ImageField label="Foto profil" value={s.avatar} onChange={(url) => setS((v) => ({ ...v, avatar: url }))} aspect="4 / 5" compact />
+          <ImageField label="Ikon / Logo situs (opsional)" value={s.icon} onChange={(url) => setS((v) => ({ ...v, icon: url }))} aspect="1 / 1" compact />
+        </div>
         <div className="space-y-5">
           <div className="grid gap-5 sm:grid-cols-2">
             <Field id="name" label="Nama"><input {...bind("name")} /></Field>

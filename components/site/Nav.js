@@ -19,7 +19,7 @@ function isActive(pathname, href) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export default function Nav({ name, github, admin }) {
+export default function Nav({ name, github, admin, icon = "/icon.png" }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -28,8 +28,24 @@ export default function Nav({ name, github, admin }) {
   return (
     <header className="sticky top-0 z-40 border-b border-line/70 bg-bg/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5 md:px-8">
-        <Link href="/" className="text-[15px] font-semibold tracking-tight text-ink">
-          {name}
+        <Link href="/" className="group inline-flex items-center gap-2.5 text-[15px] font-semibold tracking-tight text-ink">
+          <span className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-[7px] border border-line bg-surface transition-colors group-hover:border-line-strong">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={icon || "/icon.png"}
+              alt=""
+              width={20}
+              height={20}
+              className="h-5 w-5 object-contain"
+              onError={(e) => {
+                if (!e.currentTarget.dataset.fallback) {
+                  e.currentTarget.dataset.fallback = "1";
+                  e.currentTarget.src = "/favicon.ico";
+                }
+              }}
+            />
+          </span>
+          <span>{name}</span>
         </Link>
 
         <nav aria-label="Main" className="hidden items-center gap-1 md:flex">

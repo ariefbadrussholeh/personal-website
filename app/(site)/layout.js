@@ -25,7 +25,7 @@ export default async function SiteLayout({ children }) {
       >
         Skip to content
       </a>
-      <Nav name={settings.name} github={settings.github} admin={admin} />
+      <Nav name={settings.name} github={settings.github} admin={admin} icon={settings.icon || "/icon.png"} />
       <main id="main" className="flex-1">
         {children}
       </main>

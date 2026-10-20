@@ -9,6 +9,9 @@ import { useAutosave } from "./useAutosave";
 import SaveStatus from "./SaveStatus";
 import TagInput from "./TagInput";
 import ConfirmDialog from "./ConfirmDialog";
+import ImageField from "./ImageField";
+import { getBrandIcon } from "@/lib/icons";
+import TechIcon from "@/components/site/TechIcon";
 
 export default function ExperienceEditor({ initial }) {
   const router = useRouter();
@@ -17,6 +20,7 @@ export default function ExperienceEditor({ initial }) {
     role: initial.role || "",
     location: initial.location || "",
     url: initial.url || "",
+    icon: initial.icon || "",
     start_date: initial.start_date || "",
     end_date: initial.end_date || "",
     is_current: !!initial.is_current,
@@ -101,6 +105,40 @@ export default function ExperienceEditor({ initial }) {
           />
           Masih bekerja di sini
         </label>
+
+        <div>
+          <label className="label">Ikon / Logo Perusahaan (opsional)</label>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+            <div className="w-24 shrink-0">
+              <ImageField
+                value={f.icon && (f.icon.startsWith("http") || f.icon.startsWith("/") || f.icon.startsWith("data:")) ? f.icon : ""}
+                onChange={(url) => set("icon", url)}
+                aspect="1 / 1"
+                compact
+              />
+            </div>
+            <div className="flex-1 space-y-2">
+              <input
+                id="icon"
+                className="field font-mono text-sm"
+                value={f.icon}
+                placeholder="URL gambar atau slug SimpleIcons (contoh: google, meta, vercel)"
+                onChange={(e) => set("icon", e.target.value)}
+              />
+              <p className="help">
+                Unggah logo di sebelah kiri, atau ketik nama slug brand (dari simpleicons.org). Kosongkan jika tidak memakai ikon.
+              </p>
+              {f.icon && getBrandIcon(f.icon) && (
+                <div className="flex items-center gap-2 pt-1 text-sm text-ink">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-[6px] border border-line bg-surface-2 p-1">
+                    <TechIcon icon={getBrandIcon(f.icon)} size={18} />
+                  </div>
+                  <span className="text-xs text-muted">Preview ikon brand: {getBrandIcon(f.icon).title}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
         <div>
           <label className="label" htmlFor="highlights">Hal yang dikerjakan</label>

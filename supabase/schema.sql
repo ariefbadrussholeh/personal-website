@@ -72,6 +72,7 @@ create table if not exists public.experiences (
   role          text not null default '',
   location      text not null default '',
   url           text not null default '',
+  icon          text not null default '',
   start_date    text not null default '',   -- format YYYY-MM
   end_date      text not null default '',   -- kosong = belum selesai
   is_current    boolean not null default false,
@@ -80,6 +81,9 @@ create table if not exists public.experiences (
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
+
+-- Migrasi aman jika tabel sudah ada sebelumnya:
+alter table public.experiences add column if not exists icon text not null default '';
 
 create table if not exists public.messages (
   id            bigint generated always as identity primary key,

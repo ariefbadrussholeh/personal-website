@@ -45,7 +45,7 @@ const SCHEMA = {
   experiences: {
     pk: "id",
     defaults: () => ({
-      company: "", role: "", location: "", url: "", start_date: "", end_date: "",
+      company: "", role: "", location: "", url: "", icon: "", start_date: "", end_date: "",
       is_current: false, highlights: [], tech: [], created_at: now(), updated_at: now(),
     }),
   },
