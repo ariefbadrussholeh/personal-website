@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listEntries } from "@/lib/db";
+import { entryDate } from "@/lib/format";
 import PageHeader from "@/components/site/PageHeader";
 import Cover from "@/components/site/Cover";
 
@@ -41,7 +42,9 @@ export default async function AlbumIndex() {
                     <h2 className="text-lg font-medium tracking-tight transition-colors group-hover:text-accent">
                       {a.title || "Untitled"}
                     </h2>
-                    <span className="shrink-0 font-mono text-sm text-faint">{a.photo_count}</span>
+                    <span className="shrink-0 font-mono text-xs text-faint">
+                      {entryDate(a)} · {a.photo_count}
+                    </span>
                   </div>
                 </Link>
               </li>

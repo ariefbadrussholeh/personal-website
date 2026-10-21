@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowUpRight, PencilSimple, Star, Trash } from "@phosphor-icons/react";
 import { api } from "@/lib/client";
-import { formatDate } from "@/lib/format";
+import { formatDate, isVideoUrl } from "@/lib/format";
 import ConfirmDialog from "./ConfirmDialog";
 
 export default function EntryList({ kind, items, editBase, publicBase, emptyText }) {
@@ -44,8 +44,12 @@ export default function EntryList({ kind, items, editBase, publicBase, emptyText
           <li key={it.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-4">
             <div className="h-12 w-16 shrink-0 overflow-hidden rounded-[6px] border border-line bg-surface-2">
               {it.cover && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={it.cover} alt="" className="h-full w-full object-cover" />
+                isVideoUrl(it.cover) ? (
+                  <video src={it.cover} muted playsInline className="h-full w-full object-cover" />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={it.cover} alt="" className="h-full w-full object-cover" />
+                )
               )}
             </div>
             <div className="min-w-0 flex-1">
@@ -54,8 +58,8 @@ export default function EntryList({ kind, items, editBase, publicBase, emptyText
                 {it.featured && <Star size={14} weight="fill" className="shrink-0 text-accent" aria-label="Unggulan" />}
               </Link>
               <p className="mt-0.5 text-sm text-faint">
-                Diubah {formatDate(it.updated_at)}
-                {typeof it.photo_count === "number" ? `, ${it.photo_count} foto` : ""}
+                {it.date ? `${formatDate(it.date)} · ` : ""}Diubah {formatDate(it.updated_at)}
+                {typeof it.photo_count === "number" ? `, ${it.photo_count} item` : ""}
               </p>
             </div>
             <span className={`chip ${it.published ? "!border-ok/40 !text-ok" : ""}`}>

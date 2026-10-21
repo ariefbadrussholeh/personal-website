@@ -40,7 +40,7 @@ export default async function AlbumPage({ params }) {
           <p className="mt-5 text-lg leading-relaxed text-muted">{album.description}</p>
         )}
         <p className="mt-5 font-mono text-sm text-faint">
-          {album.photos.length} photos, {entryDate(album)}
+          {album.photos.length} {album.photos.length === 1 ? "item" : "items"}, {entryDate(album)}
         </p>
       </header>
 

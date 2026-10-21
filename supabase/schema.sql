@@ -43,11 +43,15 @@ create table if not exists public.albums (
   title         text not null default '',
   description   text not null default '',
   cover         text not null default '',
+  date          text not null default '',   -- format YYYY-MM-DD
   published     boolean not null default false,
   published_at  timestamptz,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
+
+-- Migrasi aman jika tabel albums sudah ada sebelumnya:
+alter table public.albums add column if not exists date text not null default '';
 
 create table if not exists public.photos (
   id            bigint generated always as identity primary key,
@@ -148,12 +152,12 @@ alter table public.comments enable row level security;
 alter table public.likes enable row level security;
 alter table public.page_views enable row level security;
 
--- Bucket penyimpanan gambar. Publik untuk dibaca (supaya <img> bisa menampilkan),
+-- Bucket penyimpanan gambar dan video pendek. Publik untuk dibaca,
 -- tetapi hanya server yang bisa mengunggah dan menghapus.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
-  'uploads', 'uploads', true, 15728640,
-  array['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif']
+  'uploads', 'uploads', true, 52428800,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif', 'video/mp4', 'video/webm', 'video/quicktime']
 )
 on conflict (id) do update
   set public = excluded.public,

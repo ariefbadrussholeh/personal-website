@@ -31,7 +31,7 @@ const SCHEMA = {
     pk: "id",
     unique: ["slug"],
     defaults: () => ({
-      slug_auto: true, title: "", description: "", cover: "",
+      slug_auto: true, title: "", description: "", cover: "", date: "",
       published: false, published_at: null, created_at: now(), updated_at: now(),
     }),
   },

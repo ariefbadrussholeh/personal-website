@@ -195,6 +195,7 @@ if (!skipContent) {
         description: "Photos from walks outside the city, taken on whatever camera I had with me.",
         published: true,
         published_at: day(15),
+        date: "2024-10-12",
       })
       .select("id")
   );

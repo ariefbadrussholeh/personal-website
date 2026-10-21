@@ -4,12 +4,14 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft, CircleNotch, Eye, ImagesSquare, Star, Trash, UploadSimple, WarningCircle,
+  ArrowLeft, CircleNotch, Eye, ImagesSquare, Star, Trash, UploadSimple, WarningCircle, Scissors, VideoCamera,
 } from "@phosphor-icons/react";
-import { api, uploadImage } from "@/lib/client";
+import { api, uploadMedia } from "@/lib/client";
+import { isVideoUrl } from "@/lib/format";
 import { useAutosave } from "./useAutosave";
 import SaveStatus from "./SaveStatus";
 import ConfirmDialog from "./ConfirmDialog";
+import VideoTrimmerModal from "./VideoTrimmerModal";
 
 const CONCURRENCY = 3;
 
@@ -23,7 +25,9 @@ export default function AlbumEditor({ initial }) {
   const [confirm, setConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [notice, setNotice] = useState("");
+  const [trimmingFile, setTrimmingFile] = useState(null);
   const input = useRef(null);
+  const trimInput = useRef(null);
 
   const { status, error, queue, flush } = useAutosave({
     kind: "albums",
@@ -39,7 +43,7 @@ export default function AlbumEditor({ initial }) {
   /* ----- uploading ------------------------------------------------- */
 
   async function uploadFiles(fileList) {
-    const files = [...fileList].filter((f) => f.type.startsWith("image/"));
+    const files = [...fileList].filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"));
     if (!files.length) return;
     const items = files.map((file, i) => ({ id: `${Date.now()}-${i}`, file }));
     setUploads((u) => [...u, ...items.map((i) => ({ id: i.id, name: i.file.name, state: "uploading" }))]);
@@ -49,7 +53,7 @@ export default function AlbumEditor({ initial }) {
       while (queueList.length) {
         const item = queueList.shift();
         try {
-          const meta = await uploadImage(item.file);
+          const meta = await uploadMedia(item.file);
           const added = await api(`/api/album-photos/${doc.id}`, { method: "POST", body: { photos: [meta] } });
           setPhotos(added);
           setUploads((u) => u.filter((x) => x.id !== item.id));
@@ -59,6 +63,20 @@ export default function AlbumEditor({ initial }) {
       }
     };
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, worker));
+  }
+
+  async function handleTrimmedUpload(trimmedFile, { width, height } = {}) {
+    setTrimmingFile(null);
+    const item = { id: `${Date.now()}`, file: trimmedFile };
+    setUploads((u) => [...u, { id: item.id, name: item.file.name, state: "uploading" }]);
+    try {
+      const meta = await uploadMedia(item.file, { width, height });
+      const added = await api(`/api/album-photos/${doc.id}`, { method: "POST", body: { photos: [meta] } });
+      setPhotos(added);
+      setUploads((u) => u.filter((x) => x.id !== item.id));
+    } catch (e) {
+      setUploads((u) => u.map((x) => (x.id === item.id ? { ...x, state: "error", error: e.message } : x)));
+    }
   }
 
   /* ----- photo actions --------------------------------------------- */
@@ -162,7 +180,20 @@ export default function AlbumEditor({ initial }) {
           onChange={(e) => set("description", e.target.value)}
           className="mt-4 w-full max-w-2xl resize-none bg-transparent text-lg leading-relaxed text-muted outline-none placeholder:text-faint"
         />
-        <p className="mt-2 font-mono text-xs text-faint">/album/{doc.slug}</p>
+
+        <div className="mt-4 flex flex-wrap items-center gap-5">
+          <div className="flex items-center gap-2">
+            <label htmlFor="album-date" className="text-xs font-medium text-muted">Tanggal:</label>
+            <input
+              id="album-date"
+              type="date"
+              value={doc.date || ""}
+              onChange={(e) => set("date", e.target.value)}
+              className="field !h-8 !w-auto !py-1 text-sm font-mono"
+            />
+          </div>
+          <p className="font-mono text-xs text-faint">/album/{doc.slug}</p>
+        </div>
 
         {/* Drop zone */}
         <div
@@ -184,19 +215,40 @@ export default function AlbumEditor({ initial }) {
           }}
         >
           <ImagesSquare size={32} className="text-muted" />
-          <p className="text-ink">Seret foto ke sini, atau pilih dari perangkat</p>
-          <p className="text-sm text-faint">JPG, PNG, WebP, AVIF atau GIF. Bisa banyak sekaligus, maksimal 15 MB per foto.</p>
-          <button type="button" className="btn btn-primary" onClick={() => input.current?.click()}>
-            <UploadSimple size={16} /> Pilih foto
-          </button>
+          <p className="text-ink">Seret foto atau video ke sini, atau pilih dari perangkat</p>
+          <p className="text-sm text-faint">Foto (JPG, PNG, WebP, GIF) atau Video pendek (MP4, WebM, MOV). Maksimal 40 MB.</p>
+          <div className="flex flex-wrap items-center justify-center gap-2.5">
+            <button type="button" className="btn btn-primary" onClick={() => input.current?.click()}>
+              <UploadSimple size={16} /> Pilih foto / video
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => trimInput.current?.click()}
+            >
+              <Scissors size={15} /> Trim Video
+            </button>
+          </div>
           <input
             ref={input}
             type="file"
             multiple
-            accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+            accept="image/jpeg,image/png,image/webp,image/avif,image/gif,video/mp4,video/webm,video/quicktime"
             className="hidden"
             onChange={(e) => {
               uploadFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+          <input
+            ref={trimInput}
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files?.[0]) {
+                setTrimmingFile(e.target.files[0]);
+              }
               e.target.value = "";
             }}
           />
@@ -229,64 +281,84 @@ export default function AlbumEditor({ initial }) {
           </ul>
         )}
 
-        {/* Photos */}
+        {/* Photos & Videos */}
         {photos.length > 0 && (
           <>
             <div className="mb-4 mt-10 flex items-baseline justify-between">
-              <h2 className="text-lg font-medium tracking-tight">{photos.length} foto</h2>
-              <p className="text-sm text-faint">Seret foto untuk mengubah urutan. Bintang menandai sampul album.</p>
+              <h2 className="text-lg font-medium tracking-tight">{photos.length} item media</h2>
+              <p className="text-sm text-faint">Seret item untuk mengubah urutan. Bintang menandai sampul album.</p>
             </div>
             <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {photos.map((p, i) => (
-                <li
-                  key={p.id}
-                  draggable
-                  onDragStart={() => setDragIndex(i)}
-                  onDragOver={(e) => dragIndex !== null && e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    drop(i);
-                  }}
-                  onDragEnd={() => setDragIndex(null)}
-                  className={`group rounded-[10px] border bg-surface p-2 transition-opacity ${
-                    dragIndex === i ? "opacity-40" : ""
-                  } ${effectiveCover === p.url ? "border-accent/60" : "border-line"}`}
-                >
-                  <div className="relative aspect-square overflow-hidden rounded-[6px] bg-surface-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.url} alt={p.caption || ""} draggable={false} className="h-full w-full cursor-grab object-cover" />
-                    <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                      <button
-                        type="button"
-                        aria-label="Jadikan sampul"
-                        aria-pressed={effectiveCover === p.url}
-                        className={`btn btn-sm btn-icon bg-bg/85 backdrop-blur ${effectiveCover === p.url ? "!text-accent" : ""}`}
-                        onClick={() => set("cover", p.url, { immediate: true })}
-                      >
-                        <Star size={14} weight={effectiveCover === p.url ? "fill" : "regular"} />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="Hapus foto"
-                        className="btn btn-sm btn-icon bg-bg/85 backdrop-blur"
-                        onClick={() => removePhoto(p)}
-                      >
-                        <Trash size={14} />
-                      </button>
+              {photos.map((p, i) => {
+                const isVideo = isVideoUrl(p.url);
+                return (
+                  <li
+                    key={p.id}
+                    draggable
+                    onDragStart={() => setDragIndex(i)}
+                    onDragOver={(e) => dragIndex !== null && e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      drop(i);
+                    }}
+                    onDragEnd={() => setDragIndex(null)}
+                    className={`group rounded-[10px] border bg-surface p-2 transition-opacity ${
+                      dragIndex === i ? "opacity-40" : ""
+                    } ${effectiveCover === p.url ? "border-accent/60" : "border-line"}`}
+                  >
+                    <div className="relative aspect-square overflow-hidden rounded-[6px] bg-surface-2">
+                      {isVideo ? (
+                        <video
+                          src={p.url}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          className="h-full w-full cursor-grab object-cover"
+                        />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.url} alt={p.caption || ""} draggable={false} className="h-full w-full cursor-grab object-cover" />
+                      )}
+
+                      {isVideo && (
+                        <div className="pointer-events-none absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded bg-black/75 px-1.5 py-0.5 font-mono text-[10px] text-white backdrop-blur">
+                          <VideoCamera size={12} weight="fill" /> Video
+                        </div>
+                      )}
+
+                      <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                        <button
+                          type="button"
+                          aria-label="Jadikan sampul"
+                          aria-pressed={effectiveCover === p.url}
+                          className={`btn btn-sm btn-icon bg-bg/85 backdrop-blur ${effectiveCover === p.url ? "!text-accent" : ""}`}
+                          onClick={() => set("cover", p.url, { immediate: true })}
+                        >
+                          <Star size={14} weight={effectiveCover === p.url ? "fill" : "regular"} />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Hapus media"
+                          className="btn btn-sm btn-icon bg-bg/85 backdrop-blur"
+                          onClick={() => removePhoto(p)}
+                        >
+                          <Trash size={14} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <input
-                    aria-label={`Keterangan foto ${i + 1}`}
-                    defaultValue={p.caption}
-                    placeholder="Keterangan"
-                    maxLength={200}
-                    onBlur={(e) => saveCaption(p, e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-                    className="mt-2 w-full bg-transparent px-1 text-sm text-muted outline-none placeholder:text-faint focus:text-ink"
-                  />
-                </li>
-              ))}
+                    <input
+                      aria-label={`Keterangan media ${i + 1}`}
+                      defaultValue={p.caption}
+                      placeholder="Keterangan"
+                      maxLength={200}
+                      onBlur={(e) => saveCaption(p, e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                      className="mt-2 w-full bg-transparent px-1 text-sm text-muted outline-none placeholder:text-faint focus:text-ink"
+                    />
+                  </li>
+                );
+              })}
             </ul>
           </>
         )}
@@ -297,6 +369,13 @@ export default function AlbumEditor({ initial }) {
           </button>
         </div>
       </div>
+
+      <VideoTrimmerModal
+        open={Boolean(trimmingFile)}
+        file={trimmingFile}
+        onClose={() => setTrimmingFile(null)}
+        onComplete={handleTrimmedUpload}
+      />
 
       <ConfirmDialog
         open={confirm}
