@@ -48,7 +48,9 @@ async function handlePOST(request) {
   if (!file || typeof file === "string") {
     return Response.json({ error: "File tidak ditemukan" }, { status: 400 });
   }
-  const format = FORMATS[file.type];
+  const rawType = file.type || "";
+  const cleanType = rawType.split(";")[0].trim().toLowerCase();
+  const format = FORMATS[cleanType];
   if (!format) {
     return Response.json({ error: "Format harus JPG, PNG, WebP, AVIF, GIF, MP4, WebM atau MOV" }, { status: 415 });
   }

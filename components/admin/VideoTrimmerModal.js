@@ -170,8 +170,9 @@ export default function VideoTrimmerModal({ open, file, onClose, onComplete }) {
       const resultPromise = new Promise((resolve, reject) => {
         recorder.onstop = () => {
           try {
-            const ext = recorder.mimeType?.includes("mp4") ? "mp4" : "webm";
-            const actualType = recorder.mimeType || "video/webm";
+            const rawType = recorder.mimeType || "video/webm";
+            const actualType = rawType.split(";")[0].trim().toLowerCase();
+            const ext = actualType.includes("mp4") ? "mp4" : "webm";
             const blob = new Blob(chunks, { type: actualType });
             const cleanBase = file.name.replace(/\.[^/.]+$/, "");
             const trimmedFile = new File([blob], `${cleanBase}-trimmed.${ext}`, { type: actualType });
