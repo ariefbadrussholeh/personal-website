@@ -111,15 +111,17 @@ create table if not exists public.comments (
 );
 create index if not exists comments_post_idx on public.comments (post_id, created_at);
 
--- target: 'site' atau 'post:<id>'. Satu pengunjung hanya bisa like satu kali per target.
+-- target: 'site' atau 'post:<id>'. Mendukung banyak like per pengunjung (bisa dispam).
 create table if not exists public.likes (
   id            bigint generated always as identity primary key,
   target        text not null,
   visitor       text not null,
-  created_at    timestamptz not null default now(),
-  unique (target, visitor)
+  created_at    timestamptz not null default now()
 );
 create index if not exists likes_target_idx on public.likes (target);
+
+-- Migrasi aman untuk menghapus batasan 1 like per pengunjung jika tabel sudah ada:
+alter table public.likes drop constraint if exists likes_target_visitor_key;
 
 -- Analitik tanpa cookie pelacak: pengunjung = hash harian dari IP + browser.
 create table if not exists public.page_views (

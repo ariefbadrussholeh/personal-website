@@ -63,7 +63,6 @@ const SCHEMA = {
   likes: {
     pk: "id",
     required: ["target", "visitor"],
-    uniqueSets: [["target", "visitor"]],
     defaults: () => ({ created_at: now() }),
   },
   page_views: {

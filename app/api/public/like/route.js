@@ -2,7 +2,7 @@ import { safe } from "@/lib/route";
 import { limited } from "@/lib/ratelimit";
 import { clientIp } from "@/lib/request";
 import { ensureVisitor, readVisitor } from "@/lib/visitor";
-import { getLikeState, isValidLikeTarget, toggleLike } from "@/lib/db";
+import { addLikes, getLikeState, isValidLikeTarget } from "@/lib/db";
 
 async function handleGET(request) {
   const target = new URL(request.url).searchParams.get("target") || "";
@@ -10,17 +10,19 @@ async function handleGET(request) {
   return Response.json(await getLikeState(target, await readVisitor()));
 }
 
-// Toggles: the first request likes, the next one removes the like again.
+// Spammable likes: each request adds one or more likes without unliking.
 async function handlePOST(request) {
   const body = await request.json().catch(() => null);
   const target = String(body?.target || "");
   if (!(await isValidLikeTarget(target))) return Response.json({ error: "Unknown target." }, { status: 404 });
 
   const visitor = await ensureVisitor();
-  if (limited(`like:${visitor}:${clientIp(request)}`, 40, 60_000)) {
+  const count = Math.max(1, Math.min(Number(body?.count) || 1, 50));
+
+  if (limited(`like:${visitor}:${clientIp(request)}`, 300, 60_000)) {
     return Response.json({ error: "Slow down a little." }, { status: 429 });
   }
-  return Response.json(await toggleLike(target, visitor));
+  return Response.json(await addLikes(target, visitor, count));
 }
 
 export const GET = safe(handleGET);

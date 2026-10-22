@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "@phosphor-icons/react/dist/ssr";
-import { getSettings, listEntries, listPublicExperiences } from "@/lib/db";
+import { getLikeState, getSettings, listEntries, listPublicExperiences } from "@/lib/db";
+import { readVisitor } from "@/lib/visitor";
 import { parseStack } from "@/lib/icons";
 import { entryDate } from "@/lib/format";
 import Reveal from "@/components/site/Reveal";
@@ -11,6 +12,7 @@ import ExperienceTimeline from "@/components/site/ExperienceTimeline";
 import TiltCard from "@/components/site/TiltCard";
 import Magnetic from "@/components/site/Magnetic";
 import DecodeText from "@/components/site/DecodeText";
+import HeroLikeButton from "@/components/site/HeroLikeButton";
 
 const PORTRAIT_FALLBACK = "/samples/portrait.jpg";
 
@@ -24,6 +26,8 @@ const BENTO = {
 
 export default async function HomePage() {
   const s = await getSettings();
+  const visitor = await readVisitor();
+  const siteLike = await getLikeState("site", visitor);
   const featured = await listEntries("projects", { onlyPublished: true, featured: true, limit: 4 });
   const projects = featured.length ? featured : await listEntries("projects", { onlyPublished: true, limit: 4 });
   const posts = await listEntries("posts", { onlyPublished: true, limit: 4 });
@@ -45,7 +49,7 @@ export default async function HomePage() {
             {s.headline}
           </h1>
           <p className="mt-6 max-w-lg text-lg leading-relaxed text-muted">{s.tagline}</p>
-          <div className="mt-9 flex flex-wrap gap-3">
+          <div className="mt-9 flex flex-wrap items-center gap-3">
             <Magnetic>
               <Link href="/projects" className="btn btn-primary">
                 See projects <ArrowRight size={16} />
@@ -55,6 +59,12 @@ export default async function HomePage() {
               <Link href="/blog" className="btn">
                 Read the blog
               </Link>
+            </Magnetic>
+            <Magnetic>
+              <HeroLikeButton
+                initialCount={siteLike.count}
+                initialLiked={siteLike.liked}
+              />
             </Magnetic>
           </div>
         </div>
